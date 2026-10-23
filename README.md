@@ -26,6 +26,4 @@ you get from ShaperBox / Portal / Autochroma-style tools.
 Tips: double-click a knob to reset it, mouse-wheel works on knobs, presets, and the LFO sync selector.
 
 
-## License
-Source code: MIT © 2026 seoulbby. Built with [JUCE](https://juce.com) (AGPLv3 / commercial) – if you distribute
-binaries publicly, keep the source available (AGPLv3) or get a JUCE licence.
+## LICENSE 2026 SEOULBBY SOFTWARE / PINKY LITE 
