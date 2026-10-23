@@ -2,7 +2,7 @@
 
 **Distortion · crush · filter · motion — by [seoulbby](https://github.com/seoulbby)**
 
-A pink, animated, multi-mode distortion plugin for **FL Studio** (VST3, Windows/macOS) and standalone.
+A pink, animated, multi-mode distortion plugin for **ANY DAW** (VST3, Windows/macOS) and standalone.
 Successor to *Pinky Lite* (crush + filter + mix), rebuilt from scratch with the kind of saturation
 you get from ShaperBox / Portal / Autochroma-style tools.
 
