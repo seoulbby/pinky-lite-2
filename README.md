@@ -4,7 +4,9 @@
 
 A pink, animated, multi-mode distortion plugin for **ANY DAW** (VST3, Windows/macOS) and standalone.
 Successor to *Pinky Lite* (crush + filter + mix), rebuilt from scratch with the kind of saturation
-you get from ShaperBox / Portal / Autochroma-style tools.
+you get from craziest tools  
+
+THIS UPDATE LET YOU BRING MORE COLORS IN UR MUSIC! 
 
 ![light](preview-light.png)
 ![settings](preview-settings.png)
@@ -26,4 +28,4 @@ you get from ShaperBox / Portal / Autochroma-style tools.
 Tips: double-click a knob to reset it, mouse-wheel works on knobs, presets, and the LFO sync selector.
 
 
-## LICENSE 2026 SEOULBBY SOFTWARE / PINKY LITE 
+## LICENSE 2026 MIENSU SOFTWARE / PINKY LITE 
