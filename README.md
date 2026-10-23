@@ -25,41 +25,6 @@ you get from ShaperBox / Portal / Autochroma-style tools.
 
 Tips: double-click a knob to reset it, mouse-wheel works on knobs, presets, and the LFO sync selector.
 
-## Build (local)
-Requirements: CMake ≥ 3.22, a C++17 compiler (Visual Studio 2022 on Windows, Xcode on macOS), git.
-
-```bash
-git clone https://github.com/<you>/pinky-lite-2.git
-cd pinky-lite-2
-cmake -S . -B build -DPINKY_BUILD_TESTS=ON      # downloads JUCE 8.0.4 automatically
-cmake --build build --config Release --target PinkyLite2_VST3 PinkyLite2_Standalone
-```
-
-Windows output: `build/PinkyLite2_artefacts/Release/VST3/Pinky Lite 2.vst3`
-→ copy to `C:\Program Files\Common Files\VST3\`, then in FL Studio:
-**Options → Manage plugins → Find installed plugins** (or *Start scan*).
-
-## Build on GitHub (no local setup)
-1. Create a new repo, push this folder.
-2. **Actions → Build Pinky Lite 2** runs automatically; download `Pinky-Lite-2-Windows` from the run's artifacts.
-3. To publish a release: `git tag v2.0.0 && git push --tags` – the zip files are attached automatically.
-
-## Tests
-`PinkyTests` checks that every mode/quality stays finite and limited, latency/phase alignment of the dry path,
-preset rendering and state save/restore:
-```bash
-build/PinkyTests_artefacts/Release/PinkyTests [optional-folder-for-ui-screenshots]
-```
-
-## Project layout
-```
-
-
-
-
-
-Tests/Main.cpp             headless DSP + UI snapshot tests
-```
 
 ## License
 Source code: MIT © 2026 seoulbby. Built with [JUCE](https://juce.com) (AGPLv3 / commercial) – if you distribute
