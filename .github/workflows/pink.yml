@@ -1,0 +1,28 @@
+name: Build Pinky Lite 2
+ 
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+ 
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build
+      - name: Build VST3 and Standalone
+        run: cmake --build build --config Release --target PinkyLite2_VST3 PinkyLite2_Standalone --parallel
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item -Recurse "build/PinkyLite2_artefacts/Release/VST3/Pinky Lite 2.vst3" dist/
+          Copy-Item "build/PinkyLite2_artefacts/Release/Standalone/Pinky Lite 2.exe" dist/
+          Compress-Archive -Path dist/* -DestinationPath Pinky-Lite-2-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pinky-Lite-2-Windows
+          path: Pinky-Lite-2-Windows.zip
+ 
