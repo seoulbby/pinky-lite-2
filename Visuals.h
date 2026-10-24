@@ -3,7 +3,9 @@
 #pragma once
 #include "Skin.h"
 #include "PluginProcessor.h"
-#include "Shapers.h"
+#include "Lfo.h"
+#include "Glass.h"
+#include "Glitch.h"
 
 namespace pinky
 {
@@ -30,167 +32,247 @@ static inline float paramValue (juce::AudioProcessorValueTreeState& a, const cha
     return a.getRawParameterValue (id)->load();
 }
 
-// ============================================================================ ShaperView
-class ShaperView : public juce::Component, public Animated
+// ============================================================================ WobbleView
+class WobbleView : public juce::Component, public Animated
 {
 public:
-    ShaperView (const Skin& s, PinkyProcessor& p) : skin (s), proc (p) { setOpaque (false); }
-
+    WobbleView (const Skin& s, PinkyProcessor& p) : skin (s), proc (p) {}
     void tick (float dt) override
     {
         auto& a = proc.apvts;
-        const float tDrive = juce::jlimit (0.0f, 1.0f, proc.liveDrive.load());
-        const float tShape = paramValue (a, id::shape) * 0.01f, tBias = paramValue (a, id::bias) * 0.01f;
-        const float tIn = juce::jlimit (0.0f, 1.0f, proc.inPeak.load());
-        mode = (int) paramValue (a, id::mode);
-        drive = skin.approach (drive, tDrive, dt, 14.0f);
-        shape = skin.approach (shape, tShape, dt, 14.0f);
-        bias = skin.approach (bias, tBias, dt, 14.0f);
-        level = skin.approach (level, tIn, dt, 22.0f);
-        phase += dt;
+        const float tDepth = juce::jlimit (0.0f, 1.0f, proc.liveWobble.load());
+        rate = skin.approach (rate, paramValue (a, id::wobRate), dt, 8.0f);
+        spread = skin.approach (spread, paramValue (a, id::wobSpread) * 0.01f, dt, 10.0f);
+        depth = skin.approach (depth, tDepth, dt, 12.0f);
+        phase += dt * rate * (skin.anim == 0 ? 0.0f : 1.0f);
         repaint();
     }
-
-    void paint (juce::Graphics& g) override
-    {
-        const auto& p = skin.pal;
-        auto b = getLocalBounds().toFloat();
-        paintScreen (g, skin, b);
-        auto area = b.reduced (12.0f);
-
-        // grid
-        g.setColour (p.track);
-        for (int i = 1; i < 4; ++i)
-        {
-            g.drawLine (area.getX(), area.getY() + area.getHeight() * (float) i / 4.0f, area.getRight(), area.getY() + area.getHeight() * (float) i / 4.0f, 1.0f);
-            g.drawLine (area.getX() + area.getWidth() * (float) i / 4.0f, area.getY(), area.getX() + area.getWidth() * (float) i / 4.0f, area.getBottom(), 1.0f);
-        }
-        g.setColour (p.textDim.withAlpha (0.35f));
-        g.drawLine (area.getX(), area.getCentreY(), area.getRight(), area.getCentreY(), 1.2f);
-        g.drawLine (area.getCentreX(), area.getY(), area.getCentreX(), area.getBottom(), 1.2f);
-
-        const float gv = juce::Decibels::decibelsToGain (drive * 28.0f);
-        const float yMax = 1.25f;
-        auto toPt = [&] (float x) -> juce::Point<float>
-        {
-            const float y = juce::jlimit (-yMax, yMax, pinky::shapeSample (mode, x * gv * 0.5f, shape, bias));
-            return { area.getX() + (x * 0.5f + 0.5f) * area.getWidth(), area.getCentreY() - y / yMax * area.getHeight() * 0.5f };
-        };
-
-        // diagonal reference
-        g.setColour (p.textDim.withAlpha (0.28f));
-        juce::Path ref; ref.startNewSubPath (area.getX(), area.getBottom()); ref.lineTo (area.getRight(), area.getY());
-        float dashes[] = { 4.0f, 5.0f };
-        juce::Path dashed; juce::PathStrokeType (1.0f).createDashedStroke (dashed, ref, dashes, 2);
-        g.fillPath (dashed);
-
-        std::vector<juce::Point<float>> pts;
-        for (int i = 0; i <= 140; ++i) pts.push_back (toPt (-1.0f + 2.0f * (float) i / 140.0f));
-        auto curve = smoothPathFromPoints (pts);
-
-        juce::Path fill (curve);
-        fill.lineTo (area.getRight(), area.getCentreY());
-        fill.lineTo (area.getX(), area.getCentreY());
-        fill.closeSubPath();
-        {
-            juce::Graphics::ScopedSaveState ss (g);
-            g.reduceClipRegion (area.toNearestInt());
-            g.setGradientFill (juce::ColourGradient (p.accent.withAlpha (0.30f), area.getX(), area.getY(), p.accent2.withAlpha (0.05f), area.getX(), area.getBottom(), false));
-            g.fillPath (fill);
-
-            if (skin.anim == 2)
-            {
-                g.setColour (p.accent.withAlpha (0.20f));
-                g.strokePath (curve, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            }
-            g.setGradientFill (juce::ColourGradient (p.accent2, area.getX(), area.getBottom(), p.accent, area.getRight(), area.getY(), false));
-            g.strokePath (curve, juce::PathStrokeType (2.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-            // live input dot (rides the curve)
-            const float lx = juce::jlimit (0.0f, 1.0f, level);
-            const float sign = std::sin (phase * 5.0f) > 0 ? 1.0f : -1.0f;
-            auto dot = toPt (lx * sign);
-            g.setColour (p.accent.withAlpha (0.25f));
-            g.fillEllipse (dot.x - 8, dot.y - 8, 16, 16);
-            g.setColour (juce::Colours::white);
-            g.fillEllipse (dot.x - 4.2f, dot.y - 4.2f, 8.4f, 8.4f);
-            g.setColour (p.accent);
-            g.drawEllipse (dot.x - 4.2f, dot.y - 4.2f, 8.4f, 8.4f, 1.6f);
-        }
-
-        g.setColour (p.textDim);
-        g.setFont (skin.font (10.0f, true));
-        g.drawText (juce::String (pinky::modeNames[juce::jlimit (0, (int) pinky::NumModes - 1, mode)]).toUpperCase(),
-                    b.reduced (14.0f, 8.0f), juce::Justification::topRight, false);
-    }
-
-    const Skin& skin;
-private:
-    PinkyProcessor& proc;
-    int mode = 0;
-    float drive = 0.3f, shape = 0.5f, bias = 0.0f, level = 0.0f, phase = 0.0f;
-};
-
-// ============================================================================ BandView
-class BandView : public juce::Component, public Animated
-{
-public:
-    BandView (const Skin& s, PinkyProcessor& p) : skin (s), proc (p) {}
-
-    void tick (float dt) override
-    {
-        auto& a = proc.apvts;
-        const float tx = std::log (paramValue (a, id::xover));
-        const float live = proc.liveDrive.load();
-        xover = skin.approach (xover, tx, dt, 14.0f);
-        low = skin.approach (low, juce::jmin (1.0f, live * paramValue (a, id::lowAmt) * 0.01f) , dt, 12.0f);
-        high = skin.approach (high, juce::jmin (1.0f, live * paramValue (a, id::highAmt) * 0.01f), dt, 12.0f);
-        repaint();
-    }
-
     void paint (juce::Graphics& g) override
     {
         const auto& p = skin.pal;
         auto b = getLocalBounds().toFloat();
         paintScreen (g, skin, b);
         auto area = b.reduced (12.0f, 10.0f);
-        area.removeFromBottom (12.0f);
-
-        const float lo = std::log (20.0f), hi = std::log (20000.0f);
-        auto fx = [&] (float logf) { return area.getX() + (logf - lo) / (hi - lo) * area.getWidth(); };
-        const float xx = fx (xover);
-
-        auto drawBand = [&] (float x0, float x1, float amount, juce::Colour c)
+        const float amp = (0.12f + 0.88f * depth) * area.getHeight() * 0.36f;
+        for (int k = 2; k >= 0; --k)
         {
-            const float h = 6.0f + amount * (area.getHeight() - 6.0f);
-            juce::Rectangle<float> r (x0, area.getBottom() - h, x1 - x0, h);
-            g.setGradientFill (juce::ColourGradient (c.withAlpha (0.85f), r.getX(), r.getY(), c.withAlpha (0.18f), r.getX(), r.getBottom(), false));
-            juce::Path pth; pth.addRoundedRectangle (r.getX(), r.getY(), r.getWidth(), r.getHeight(), 7.0f, 7.0f, true, true, false, false);
-            g.fillPath (pth);
-        };
-        drawBand (area.getX(), xx - 1.5f, low, p.accent);
-        drawBand (xx + 1.5f, area.getRight(), high, p.accent2);
-
-        g.setColour (p.text.withAlpha (0.75f));
-        g.fillRoundedRectangle (xx - 1.0f, area.getY() - 2.0f, 2.0f, area.getHeight() + 2.0f, 1.0f);
-        g.setColour (juce::Colours::white);
-        g.fillEllipse (xx - 4.5f, area.getY() - 4.0f, 9.0f, 9.0f);
-        g.setColour (p.accent);
-        g.drawEllipse (xx - 4.5f, area.getY() - 4.0f, 9.0f, 9.0f, 1.5f);
-
+            std::vector<juce::Point<float>> pts;
+            for (int i = 0; i <= 80; ++i)
+            {
+                const float x01 = (float) i / 80.0f;
+                const float ph = x01 * 1.6f - phase + (float) k * spread * 0.22f;
+                const float env = std::sin (3.14159f * x01);
+                pts.push_back ({ area.getX() + x01 * area.getWidth(),
+                                 area.getCentreY() + std::sin (6.2831853f * ph) * amp * env * (1.0f - 0.18f * (float) k)
+                                                   + (float) (k - 1) * 7.0f });
+            }
+            auto path = smoothPathFromPoints (pts);
+            const float a = k == 0 ? 1.0f : (k == 1 ? 0.6f : 0.32f);
+            if (k == 0 && skin.anim == 2)
+            {
+                g.setColour (p.accent.withAlpha (0.18f));
+                g.strokePath (path, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+            g.setGradientFill (juce::ColourGradient (p.accent.withAlpha (a), area.getX(), 0, p.accent2.withAlpha (a), area.getRight(), 0, false));
+            g.strokePath (path, juce::PathStrokeType (k == 0 ? 2.6f : 1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
         g.setColour (p.textDim);
         g.setFont (skin.font (9.5f, true));
-        for (auto f : { 100.0f, 1000.0f, 10000.0f })
-            g.drawText (f >= 1000 ? juce::String ((int) (f / 1000)) + "k" : juce::String ((int) f),
-                        juce::Rectangle<float> (fx (std::log (f)) - 14, area.getBottom() + 1, 28, 12), juce::Justification::centred, false);
-        g.drawText ("LOW", area.reduced (6, 2), juce::Justification::topLeft, false);
-        g.drawText ("HIGH", area.reduced (6, 2), juce::Justification::topRight, false);
+        g.drawText ("PITCH DRIFT", b.reduced (10.0f, 5.0f), juce::Justification::topLeft, false);
     }
-
     const Skin& skin;
 private:
     PinkyProcessor& proc;
-    float xover = std::log (700.0f), low = 0.3f, high = 0.3f;
+    float rate = 1.2f, spread = 0.5f, depth = 0.2f, phase = 0.0f;
+};
+
+// ============================================================================ ShimmerView
+class ShimmerView : public juce::Component, public Animated
+{
+public:
+    ShimmerView (const Skin& s, PinkyProcessor& p) : skin (s), proc (p)
+    {
+        juce::Random r (77);
+        for (auto& st : stars) st = { r.nextFloat(), r.nextFloat(), 0.4f + r.nextFloat() * 0.9f, 3.0f + r.nextFloat() * 5.0f };
+    }
+    void tick (float dt) override
+    {
+        auto& a = proc.apvts;
+        amount = skin.approach (amount, juce::jlimit (0.0f, 1.0f, proc.liveShimmer.load()), dt, 10.0f);
+        level = skin.approach (level, proc.shimLevel.load(), dt, 12.0f);
+        pitch = skin.approach (pitch, paramValue (a, id::shimPitch), dt, 10.0f);
+        const float dir = pitch >= 0.0f ? 1.0f : -1.0f;
+        if (skin.anim != 0)
+            for (auto& st : stars)
+            {
+                st.y -= dir * dt * (0.06f + 0.20f * st.speed) * (0.4f + amount + level);
+                if (st.y < -0.1f) st.y += 1.2f;
+                if (st.y > 1.1f) st.y -= 1.2f;
+            }
+        repaint();
+    }
+    void paint (juce::Graphics& g) override
+    {
+        const auto& p = skin.pal;
+        auto b = getLocalBounds().toFloat();
+        paintScreen (g, skin, b);
+        auto area = b.reduced (10.0f, 8.0f);
+        const bool up = pitch >= 0.0f;
+        g.setGradientFill (juce::ColourGradient (p.accent2.withAlpha (0.28f * (0.4f + amount)), 0, up ? area.getBottom() : area.getY(),
+                                                 p.accent2.withAlpha (0.0f), 0, up ? area.getY() : area.getBottom(), false));
+        g.fillRoundedRectangle (area, 8.0f);
+        for (auto& st : stars)
+        {
+            const float fade = std::sin (juce::jlimit (0.0f, 1.0f, st.y) * 3.14159f);
+            const float r = st.size * (0.5f + 0.7f * (amount + level)) ;
+            const float cx = area.getX() + st.x * area.getWidth(), cy = area.getY() + st.y * area.getHeight();
+            g.setColour (p.accent.withAlpha (0.20f * fade));
+            g.fillEllipse (cx - r, cy - r, r * 2, r * 2);
+            g.setColour ((p.night ? p.accent2 : juce::Colours::white).withAlpha (0.35f + 0.6f * fade * (0.4f + amount)));
+            g.fillPath (fourPointStar (cx, cy, r));
+        }
+        g.setColour (p.text);
+        g.setFont (skin.font (11.0f, true));
+        g.drawText (juce::String (pitch > 0.4f ? "+" : "") + juce::String (juce::roundToInt (pitch)) + " st", b.reduced (10.0f, 5.0f),
+                    juce::Justification::topRight, false);
+        g.setColour (p.textDim);
+        g.setFont (skin.font (9.5f, true));
+        g.drawText ("SHIMMER", b.reduced (10.0f, 5.0f), juce::Justification::topLeft, false);
+    }
+    const Skin& skin;
+private:
+    struct Star { float x, y, speed, size; };
+    PinkyProcessor& proc;
+    Star stars[18];
+    float amount = 0.3f, level = 0.0f, pitch = 12.0f;
+};
+
+// ============================================================================ GlassView
+class GlassView : public juce::Component, public Animated
+{
+public:
+    GlassView (const Skin& s, PinkyProcessor& p) : skin (s), proc (p) {}
+    void tick (float dt) override
+    {
+        auto& a = proc.apvts;
+        key = (int) paramValue (a, id::glassKey);
+        scale = (int) paramValue (a, id::glassScale);
+        level = skin.approach (level, proc.glassLevel.load(), dt, 12.0f);
+        amount = skin.approach (amount, juce::jlimit (0.0f, 1.0f, proc.liveGlass.load()), dt, 10.0f);
+        t += dt;
+        for (int i = 0; i < 12; ++i)
+            on[i] = skin.approach (on[i], pinky::noteInScale (i, key, scale) ? 1.0f : 0.0f, dt, 12.0f);
+        repaint();
+    }
+    void paint (juce::Graphics& g) override
+    {
+        const auto& p = skin.pal;
+        auto b = getLocalBounds().toFloat();
+        paintScreen (g, skin, b);
+        auto area = b.reduced (10.0f, 8.0f);
+        const float cell = area.getWidth() / 12.0f;
+        g.setColour (p.textDim);
+        g.setFont (skin.font (9.5f, true));
+        g.drawText ("KEY-TUNED BELLS", b.reduced (10.0f, 5.0f), juce::Justification::topLeft, false);
+
+        for (int i = 0; i < 12; ++i)
+        {
+            const bool black = i == 1 || i == 3 || i == 6 || i == 8 || i == 10;
+            const float cx = area.getX() + cell * ((float) i + 0.5f);
+            const float cy = area.getCentreY() + (black ? 4.0f : 16.0f) - 4.0f - on[i] * 6.0f;
+            const float pulse = on[i] * (0.5f + 0.5f * std::sin (t * 3.0f + (float) i * 0.9f)) * (0.35f + level * 0.65f + amount * 0.3f);
+            const float r = cell * (0.28f + 0.10f * on[i]) + pulse * 3.0f;
+            if (on[i] > 0.02f)
+            {
+                g.setColour (p.accent.withAlpha (0.20f * on[i] + 0.35f * pulse));
+                g.fillEllipse (cx - r * 1.9f, cy - r * 1.9f, r * 3.8f, r * 3.8f);
+            }
+            auto c = p.track.interpolatedWith (p.accent.interpolatedWith (p.accent2, (float) i / 11.0f), on[i]);
+            g.setColour (c);
+            g.fillEllipse (cx - r, cy - r, r * 2, r * 2);
+            if (i == key) { g.setColour (juce::Colours::white.withAlpha (0.95f)); g.drawEllipse (cx - r - 2.5f, cy - r - 2.5f, r * 2 + 5.0f, r * 2 + 5.0f, 1.6f); }
+            g.setColour (on[i] > 0.5f ? juce::Colours::white : p.textDim);
+            g.setFont (skin.font (juce::jlimit (7.5f, 9.0f, cell * 0.5f), true));
+            g.drawText (pinky::keyNames[i], juce::Rectangle<float> (cx - r, cy - r, r * 2, r * 2), juce::Justification::centred, false);
+        }
+    }
+    const Skin& skin;
+private:
+    PinkyProcessor& proc;
+    int key = 0, scale = 0;
+    float level = 0, amount = 0.25f, t = 0, on[12] {};
+};
+
+// ============================================================================ GlitchView
+inline void drawGlitchIcon (juce::Graphics& g, juce::Rectangle<float> r, int type, juce::Colour c)
+{
+    g.setColour (c);
+    switch (type)
+    {
+        case pinky::Stutter:
+            for (int i = 0; i < 3; ++i) g.fillRoundedRectangle (r.getX() + r.getWidth() * (0.14f + 0.30f * (float) i), r.getY() + r.getHeight() * 0.22f, r.getWidth() * 0.18f, r.getHeight() * 0.56f, 1.5f);
+            break;
+        case pinky::Reverse:
+        {
+            juce::Path p; p.addTriangle (r.getRight() - r.getWidth() * 0.12f, r.getY() + r.getHeight() * 0.2f, r.getRight() - r.getWidth() * 0.12f, r.getBottom() - r.getHeight() * 0.2f, r.getX() + r.getWidth() * 0.12f, r.getCentreY());
+            g.fillPath (p); break;
+        }
+        case pinky::TapeStop:
+            for (int i = 0; i < 3; ++i) { const float h = r.getHeight() * (0.62f - 0.18f * (float) i); g.fillRoundedRectangle (r.getX() + r.getWidth() * (0.14f + 0.30f * (float) i), r.getCentreY() - h * 0.5f, r.getWidth() * 0.18f, h, 1.5f); }
+            break;
+        default:
+            for (int i = 0; i < 2; ++i) g.fillRoundedRectangle (r.getX() + r.getWidth() * (0.12f + 0.42f * (float) i), r.getY() + r.getHeight() * 0.3f, r.getWidth() * 0.30f, r.getHeight() * 0.4f, 2.0f);
+            break;
+    }
+}
+
+class GlitchView : public juce::Component, public Animated
+{
+public:
+    GlitchView (const Skin& s, PinkyProcessor& p) : skin (s), proc (p) {}
+    void tick (float dt) override
+    {
+        hist = proc.glitchHistory.load();
+        pos = proc.glitchPos.load();
+        for (int i = 0; i < 8; ++i)
+        {
+            const int type = (int) ((hist >> (4 * (7 - i))) & 15u);
+            lit[i] = skin.approach (lit[i], type > 0 ? 1.0f : 0.0f, dt, 14.0f);
+        }
+        repaint();
+    }
+    void paint (juce::Graphics& g) override
+    {
+        const auto& p = skin.pal;
+        auto b = getLocalBounds().toFloat();
+        paintScreen (g, skin, b);
+        auto area = b.reduced (8.0f, 8.0f);
+        const float cw = area.getWidth() / 8.0f;
+        for (int i = 0; i < 8; ++i)
+        {
+            auto c = juce::Rectangle<float> (area.getX() + cw * (float) i, area.getY(), cw, area.getHeight()).reduced (2.5f);
+            const int type = (int) ((hist >> (4 * (7 - i))) & 15u);
+            const float age = (float) (7 - i) / 7.0f;
+            g.setColour (p.accent.withAlpha (0.08f + 0.04f * (1.0f - age)));
+            g.fillRoundedRectangle (c, 7.0f);
+            if (type > 0)
+            {
+                const auto col = (type == 1 ? p.accent : type == 2 ? p.accent2 : type == 3 ? p.accent.interpolatedWith (p.accent2, 0.5f) : p.text);
+                g.setColour (col.withAlpha (0.25f + 0.55f * (1.0f - age * 0.7f)));
+                g.fillRoundedRectangle (c, 7.0f);
+                drawGlitchIcon (g, c.reduced (c.getWidth() * 0.15f, c.getHeight() * 0.22f), type - 1, juce::Colours::white.withAlpha (0.95f));
+            }
+            if (i == 7)
+            {
+                g.setColour (p.accent.withAlpha (0.9f));
+                g.fillRoundedRectangle (c.getX(), c.getBottom() - 4.0f, c.getWidth() * juce::jlimit (0.0f, 1.0f, pos), 3.0f, 1.5f);
+            }
+        }
+    }
+    const Skin& skin;
+private:
+    PinkyProcessor& proc;
+    std::uint32_t hist = 0; float pos = 0, lit[8] {};
 };
 
 // ============================================================================ CrushView
@@ -325,7 +407,7 @@ public:
     {
         auto& a = proc.apvts;
         shape = (int) paramValue (a, id::lfoShape);
-        const float amt = juce::jmax (std::abs (paramValue (a, id::lfoDrive)), std::abs (paramValue (a, id::lfoCut)), std::abs (paramValue (a, id::lfoCrush)));
+        const float amt = juce::jmax (std::abs (paramValue (a, id::lfoWob)), std::abs (paramValue (a, id::lfoShim)), std::abs (paramValue (a, id::lfoGlass)), std::abs (paramValue (a, id::lfoCut)));
         active = skin.approach (active, amt > 0.5f ? 1.0f : 0.0f, dt, 8.0f);
         phase = proc.lfoPhaseOut.load();
         repaint();
@@ -440,9 +522,8 @@ struct Layout
 {
     static constexpr int W = 900, H = 620;
     static inline const juce::Rectangle<int> header { 0, 0, W, 70 },
-        cardA { 16, 78, 572, 262 }, cardB { 596, 78, 288, 262 },
-        cardC { 16, 350, 188, 258 }, cardD { 212, 350, 224, 258 },
-        cardE { 444, 350, 296, 258 }, cardF { 748, 350, 136, 258 };
+        cardA { 16, 78, 211, 262 }, cardB { 235, 78, 211, 262 }, cardC { 454, 78, 211, 262 }, cardD { 673, 78, 211, 262 },
+        cardE { 16, 350, 188, 258 }, cardF { 212, 350, 224, 258 }, cardG { 444, 350, 296, 258 }, cardH { 748, 350, 136, 258 };
 };
 
 class BackgroundLayer : public juce::Component, public Animated
@@ -531,8 +612,8 @@ private:
         blob (130, 600, 200, (p.night ? juce::Colour (0xffb06bff) : juce::Colour (0xffe6c8ff)).withAlpha (p.night ? 0.12f : 0.4f));
 
         struct C { juce::Rectangle<int> r; const char* title; };
-        const C cards[] = { { Layout::cardA, "DISTORTION" }, { Layout::cardB, "BANDS" }, { Layout::cardC, "CRUSH" },
-                            { Layout::cardD, "FILTER" }, { Layout::cardE, "MOTION" }, { Layout::cardF, "OUTPUT" } };
+        const C cards[] = { { Layout::cardA, "WOBBLE" }, { Layout::cardB, "SHIMMER" }, { Layout::cardC, "GLASS" }, { Layout::cardD, "GLITCH" },
+                            { Layout::cardE, "CRUSH" }, { Layout::cardF, "FILTER" }, { Layout::cardG, "MOTION" }, { Layout::cardH, "OUTPUT" } };
         for (auto& c : cards)
         {
             auto r = c.r.toFloat();

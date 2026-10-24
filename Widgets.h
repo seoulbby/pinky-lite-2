@@ -271,7 +271,7 @@ private:
 class StepSelector : public juce::Component, public Animated
 {
 public:
-    StepSelector (const Skin& s, APVTS& apvts, const juce::String& paramID) : skin (s)
+    StepSelector (const Skin& s, APVTS& apvts, const juce::String& paramID, juce::String prefixText = {}) : skin (s), prefix (std::move (prefixText))
     {
         auto* param = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (paramID));
         jassert (param != nullptr);
@@ -302,7 +302,7 @@ public:
         g.drawText (juce::String::charToString (0x203a), b.removeFromRight (b.getHeight()), juce::Justification::centred, false);
         g.setColour (p.text);
         g.setFont (skin.font (11.5f, true));
-        g.drawText ("LFO " + choices[index], b, juce::Justification::centred, false);
+        g.drawText (prefix + choices[index], b, juce::Justification::centred, false);
     }
 
     void mouseEnter (const juce::MouseEvent&) override { hovered = true; }
@@ -331,6 +331,7 @@ public:
 private:
     std::unique_ptr<juce::ParameterAttachment> att;
     juce::StringArray choices;
+    juce::String prefix;
     int index = 0;
     bool hovered = false;
     float hover = 0.0f;

@@ -21,7 +21,7 @@ public:
     int  animation() const    { return (int) tree.getProperty ("anim", 2); }       // 0 off, 1 light, 2 full
     int  knobFeel() const     { return (int) tree.getProperty ("feel", 1); }       // 0 fast, 1 normal, 2 fine
     bool tooltips() const     { return (bool) tree.getProperty ("tips", true); }
-    bool autoGain() const     { return autoGainFlag.load(); }
+    bool repeatable() const   { return repeatFlag.load(); }
     bool safety() const       { return safetyFlag.load(); }
 
     static float scaleFor (int idx) { static constexpr float s[] { 0.8f, 1.0f, 1.25f, 1.5f }; return s[juce::jlimit (0, 3, idx)]; }
@@ -39,6 +39,6 @@ private:
     void loadGlobal();
     juce::File globalFile() const;
 
-    std::atomic<bool> autoGainFlag { true }, safetyFlag { true };
+    std::atomic<bool> repeatFlag { true }, safetyFlag { true };
 };
 } // namespace pinky

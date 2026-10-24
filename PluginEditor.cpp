@@ -131,29 +131,36 @@ private:
     float hov[3] {};
 };
 
-const char* tooltipFor (const juce::String& id)
+const char* tooltipFor (const juce::String& pid)
 {
     static const std::map<juce::String, const char*> t = {
-        { id::inGain, "Input gain into the distortion." },
-        { id::drive, "How hard the signal hits the shaper." },
-        { id::shape, "Character of the selected mode (knee, fold depth, asymmetry...)." },
-        { id::bias, "Offsets the signal for asymmetric, even-harmonic grit." },
-        { id::tone, "Tilt EQ after the distortion: left = darker, right = brighter." },
-        { id::xover, "Where the two distortion bands split." },
-        { id::lowAmt, "How much drive the low band gets." },
-        { id::highAmt, "How much drive the high band gets." },
+        { id::inGain, "Input gain." },
+        { id::wobDepth, "How far the pitch drifts (tape wow + flutter). 0 = off." },
+        { id::wobRate, "Speed of the pitch drift." },
+        { id::wobSpread, "Offsets left/right drift for a wide, floating stereo image." },
+        { id::shimAmt, "Level of the pitch-shifted shimmer reverb." },
+        { id::shimPitch, "Interval the shimmer climbs by: +12 = octave up, -12 = octave down, 0 = plain reverb." },
+        { id::shimDecay, "Length of the shimmer tail." },
+        { id::glassAmt, "Level of the key-tuned glass bells." },
+        { id::glassDecay, "How long the bells ring." },
+        { id::glassSpread, "Detunes the left/right bells slightly for a wide chorus." },
+        { id::glAmt, "How much of the glitch effect is blended in." },
+        { id::glChance, "Chance that each step gets a glitch. Set the Repeatable option in Settings to make the pattern loop identically." },
+        { id::glSmooth, "Fade time in/out of a glitch. Short = snappy, long = soft." },
         { id::bits, "Bit-crusher: fewer bits = crunchier." },
         { id::rate, "Sample-rate reducer: higher = more aliasing." },
         { id::cutoff, "Filter cutoff frequency." },
         { id::reso, "Filter resonance." },
         { id::lfoRate, "LFO speed in Hz (used when Sync is Free)." },
-        { id::lfoDrive, "How much the LFO moves the drive. Negative inverts." },
+        { id::lfoWob, "How much the LFO moves Wobble depth. Negative inverts." },
+        { id::lfoShim, "How much the LFO moves Shimmer level." },
+        { id::lfoGlass, "How much the LFO moves Glass level." },
         { id::lfoCut, "How much the LFO moves the filter cutoff." },
-        { id::lfoCrush, "How much the LFO moves the crusher." },
+        { id::tone, "Tilt EQ: left = darker, right = brighter." },
         { id::width, "Stereo width: 0 = mono, 100 = original, 200 = extra wide." },
         { id::mix, "Dry / wet balance." },
         { id::outGain, "Output level." } };
-    auto it = t.find (id);
+    auto it = t.find (pid);
     return it != t.end() ? it->second : "";
 }
 } // namespace
@@ -182,21 +189,33 @@ struct PinkyEditor::Content : public juce::Component
         gear = &add<GearButton> (skin, [this] { if (toggleSettingsCb) toggleSettingsCb(); });
         gear->setBounds (836, 15, 40, 40);
 
-        // ---- Distortion card
-        auto& modePills = add<PillSelector> (skin, a, id::mode, juce::StringArray (pinky::modeNames, (int) pinky::NumModes), 8);
-        modePills.setBounds (30, 108, 546, 28);
-        shaperView = &add<ShaperView> (skin, proc);
-        shaperView->setBounds (30, 146, 196, 184);
-        knob (id::drive, "Drive", 236, 146, 130, 184, 98, false);
-        knob (id::shape, "Shape", 366, 176, 68, 130, 58, false);
-        knob (id::bias, "Bias", 436, 176, 68, 130, 58, true);
-        knob (id::tone, "Tone", 506, 176, 68, 130, 58, true);
+        // ---- Wobble card
+        add<WobbleView> (skin, proc).setBounds (28, 108, 187, 90);
+        knob (id::wobDepth, "Depth", 28, 206, 62, 124, 50, false);
+        knob (id::wobRate, "Rate", 90, 206, 62, 124, 50, false);
+        knob (id::wobSpread, "Spread", 152, 206, 62, 124, 50, false);
 
-        // ---- Bands card
-        add<BandView> (skin, proc).setBounds (612, 108, 256, 96);
-        knob (id::xover, "Xover", 610, 212, 86, 120, 60, false);
-        knob (id::lowAmt, "Low", 696, 212, 86, 120, 60, false);
-        knob (id::highAmt, "High", 782, 212, 86, 120, 60, false);
+        // ---- Shimmer card
+        add<ShimmerView> (skin, proc).setBounds (247, 108, 187, 90);
+        knob (id::shimAmt, "Amount", 247, 206, 62, 124, 50, false);
+        knob (id::shimPitch, "Pitch", 309, 206, 62, 124, 50, true);
+        knob (id::shimDecay, "Decay", 371, 206, 62, 124, 50, false);
+
+        // ---- Glass card
+        add<GlassView> (skin, proc).setBounds (466, 108, 187, 84);
+        add<StepSelector> (skin, a, id::glassKey, "Key ").setBounds (466, 198, 84, 22);
+        add<StepSelector> (skin, a, id::glassScale).setBounds (556, 198, 97, 22);
+        knob (id::glassAmt, "Amount", 466, 224, 62, 110, 46, false);
+        knob (id::glassDecay, "Decay", 528, 224, 62, 110, 46, false);
+        knob (id::glassSpread, "Spread", 590, 224, 62, 110, 46, false);
+
+        // ---- Glitch card
+        add<GlitchView> (skin, proc).setBounds (685, 108, 187, 66);
+        add<StepSelector> (skin, a, id::glType).setBounds (685, 180, 93, 22);
+        add<StepSelector> (skin, a, id::glDiv, "Step ").setBounds (782, 180, 90, 22);
+        knob (id::glAmt, "Amount", 685, 208, 62, 122, 48, false);
+        knob (id::glChance, "Chance", 747, 208, 62, 122, 48, false);
+        knob (id::glSmooth, "Smooth", 809, 208, 62, 122, 48, false);
 
         // ---- Crush card
         add<CrushView> (skin, proc).setBounds (30, 380, 160, 92);
@@ -210,15 +229,16 @@ struct PinkyEditor::Content : public juce::Component
         knob (id::reso, "Reso", 324, 500, 98, 104, 52, false);
 
         // ---- Motion card
-        add<StepSelector> (skin, a, id::lfoSync).setBounds (598, 354, 128, 22);
+        add<StepSelector> (skin, a, id::lfoSync, "LFO ").setBounds (598, 354, 128, 22);
         add<LfoView> (skin, proc).setBounds (458, 382, 268, 74);
         auto& shapePills = add<PillSelector> (skin, a, id::lfoShape, juce::StringArray (pinky::lfoShapeNames, (int) pinky::NumLfoShapes), 6);
         shapePills.setBounds (458, 462, 268, 28);
         shapePills.drawIcon = [] (juce::Graphics& g, juce::Rectangle<float> r, int i, juce::Colour c) { drawLfoIcon (g, r, i, c); };
-        knob (id::lfoRate, "Rate", 458, 494, 67, 110, 48, false);
-        knob (id::lfoDrive, "Drive", 525, 494, 67, 110, 48, true);
-        knob (id::lfoCut, "Cutoff", 592, 494, 67, 110, 48, true);
-        knob (id::lfoCrush, "Crush", 659, 494, 67, 110, 48, true);
+        knob (id::lfoRate, "Rate", 456, 496, 54, 108, 42, false);
+        knob (id::lfoWob, "Wobble", 510, 496, 54, 108, 42, true);
+        knob (id::lfoShim, "Shimmer", 564, 496, 54, 108, 42, true);
+        knob (id::lfoGlass, "Glass", 618, 496, 54, 108, 42, true);
+        knob (id::lfoCut, "Cutoff", 672, 496, 54, 108, 42, true);
 
         // ---- Output card
         knob (id::inGain, "Input", 762, 380, 58, 108, 46, true);
@@ -278,7 +298,6 @@ struct PinkyEditor::Content : public juce::Component
     PresetBar* presetBar = nullptr;
     LevelBar *inBar = nullptr, *outBar = nullptr;
     GearButton* gear = nullptr;
-    ShaperView* shaperView = nullptr;
     std::unique_ptr<SettingsPage> settingsPage;
     std::function<void()> toggleSettingsCb;
 };

@@ -3,7 +3,7 @@
 
 namespace pinky
 {
-static const char* kKeys[] = { "theme", "accent", "uiScale", "anim", "feel", "tips", "autoGain", "safety" };
+static const char* kKeys[] = { "theme", "accent", "uiScale", "anim", "feel", "tips", "repeat", "safety" };
 
 static void fillDefaults (juce::ValueTree& t)
 {
@@ -13,7 +13,7 @@ static void fillDefaults (juce::ValueTree& t)
     t.setProperty ("anim", 2, nullptr);
     t.setProperty ("feel", 1, nullptr);
     t.setProperty ("tips", true, nullptr);
-    t.setProperty ("autoGain", true, nullptr);
+    t.setProperty ("repeat", true, nullptr);
     t.setProperty ("safety", true, nullptr);
 }
 
@@ -53,7 +53,7 @@ void PinkySettings::saveGlobal()
 
 void PinkySettings::applyFlags()
 {
-    autoGainFlag = (bool) tree.getProperty ("autoGain", true);
+    repeatFlag = (bool) tree.getProperty ("repeat", true);
     safetyFlag   = (bool) tree.getProperty ("safety", true);
 }
 

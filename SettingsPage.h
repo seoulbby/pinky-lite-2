@@ -9,7 +9,7 @@ namespace pinky
 class SettingsPage : public juce::Component, public Animated
 {
 public:
-    static constexpr int panelW = 600, panelH = 508;
+    static constexpr int panelW = 600, panelH = 440;
 
     SettingsPage (const Skin& s, PinkyProcessor& p, std::function<void()> closeCb)
         : skin (s), proc (p), onClose (std::move (closeCb))
@@ -46,10 +46,8 @@ public:
         feelPills   = pills ({ "Fast", "Normal", "Fine" }, st.knobFeel(), "feel");
         tipsToggle  = toggle (st.tooltips(), "tips");
 
-        qualityPills = std::make_unique<PillSelector> (skin, proc.apvts, pinky::id::quality, juce::StringArray { "Eco 1x", "HQ 2x", "Ultra 4x" }, 3);
-        addAndMakeVisible (*qualityPills); animated.push_back (qualityPills.get());
-        gainToggle  = toggle (st.autoGain(), "autoGain");
-        safeToggle  = toggle (st.safety(), "safety");
+        repeatToggle = toggle (st.repeatable(), "repeat");
+        safeToggle   = toggle (st.safety(), "safety");
 
         closeBtn = std::make_unique<PinkButton> (skin, "Done", [this] { if (onClose) onClose(); }, true);
         addAndMakeVisible (*closeBtn); animated.push_back (closeBtn.get());
@@ -66,7 +64,7 @@ public:
         animPills->setIndex (st.animation());
         feelPills->setIndex (st.knobFeel());
         tipsToggle->setState (st.tooltips());
-        gainToggle->setState (st.autoGain());
+        repeatToggle->setState (st.repeatable());
         safeToggle->setState (st.safety());
         repaint();
     }
@@ -142,9 +140,8 @@ public:
         row ("Knob feel", "mouse drag sensitivity", oy + 254.0f);
         row ("Tooltips", "hover hints", oy + 294.0f);
         section ("ENGINE", oy + 336.0f);
-        row ("Oversampling", "less aliasing, more CPU", oy + 360.0f);
-        row ("Auto gain", "keeps loudness steady", oy + 400.0f);
-        row ("Safety limiter", "soft-clips above 0 dBFS", oy + 440.0f);
+        row ("Repeatable glitches", "same pattern every loop", oy + 360.0f);
+        row ("Safety limiter", "soft-clips above 0 dBFS", oy + 400.0f);
         juce::ignoreUnused (ox);
 
         g.setColour (p.textDim);
@@ -163,11 +160,10 @@ public:
         animPills->setBounds (cx, oy + 214, 240, 28);
         feelPills->setBounds (cx, oy + 254, 240, 28);
         tipsToggle->setBounds (cx, oy + 296, 48, 26);
-        qualityPills->setBounds (cx, oy + 360, 270, 28);
-        gainToggle->setBounds (cx, oy + 402, 48, 26);
-        safeToggle->setBounds (cx, oy + 442, 48, 26);
+        repeatToggle->setBounds (cx, oy + 362, 48, 26);
+        safeToggle->setBounds (cx, oy + 402, 48, 26);
         closeBtn->setBounds (r.getRight() - 30 - 96, oy + 20, 96, 30);
-        resetBtn->setBounds (r.getRight() - 30 - 130, oy + 400, 130, 28);
+        resetBtn->setBounds (r.getRight() - 30 - 130, oy + 380, 130, 28);
         juce::ignoreUnused (cw);
     }
 
@@ -188,9 +184,8 @@ private:
     std::vector<std::unique_ptr<ToggleSwitch>> toggles;
     std::vector<Animated*> animated;
     PillSelector *themePills = nullptr, *scalePills = nullptr, *animPills = nullptr, *feelPills = nullptr;
-    ToggleSwitch *tipsToggle = nullptr, *gainToggle = nullptr, *safeToggle = nullptr;
+    ToggleSwitch *tipsToggle = nullptr, *repeatToggle = nullptr, *safeToggle = nullptr;
     std::unique_ptr<SwatchRow> swatches;
-    std::unique_ptr<PillSelector> qualityPills;
     std::unique_ptr<PinkButton> closeBtn, resetBtn;
 };
 } // namespace pinky
