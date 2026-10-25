@@ -8,7 +8,7 @@ No distortion: instead four ways to bend and sparkle a melody, plus the original
 ![light](preview-light.png)
 ![night](preview-night.png)
 
-## Modules
+## Modes
 - **Wobble** – dreamy pitch drift (tape wow + flutter) with stereo spread
 - **Shimmer** – pitch-shifted reverb: +12 = octave up, -12 = octave down, 0 = plain reverb
 - **Glass** – resonators tuned to a *key and scale* (6 scales): notes in your key ring out like glass bells
